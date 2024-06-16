@@ -4,11 +4,16 @@ import json
 
 url = "https://www.qantas.com/hotels/properties/18482?adults=2&checkIn=2024-06-23&checkOut=2024-06-24&children=0&infants=0&location=London%2C%20England%2C%20United%20Kingdom&page=1&payWith=cash&searchType=list&sortBy=popularity"
 
+# create a session
+session = requests.Session()
+
 response = requests.get(url)
 
 if response.status_code == 200:
+    # cookies ftw
+    cookies = response.cookies
     # Debug
-    content_type = response.headers.get('Content-Type')
+    content_type = response.headers.get("Content-Type")
     # print(f"Content-Type: {content_type}")
     
     html_content = response.text
@@ -26,20 +31,25 @@ if response.status_code == 200:
 
     # fetch property details 
     xhr_url = "https://www.qantas.com/hotels/api/ui/properties/18482"
+    availability_url = "https://www.qantas.com/hotels/api/ui/properties/18482/availability?checkIn=2024-06-30&checkOut=2024-07-01&adults=2&children=0&infants=0&payWith=cash"
 
     # Headers for the XHR request and user agent to prevent getting blocked cause of automatic request
     headers = {
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Connection": "keep-alive",
-        "Host": "www.qantas.com",
-        "Referer": url,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    }
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive",
+            "Host": "www.qantas.com",
+            "Referer": "https://www.qantas.com/hotels/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+            "X-Requested-With": "XMLHttpRequest",
+        }
 
     # Send a GET request to the XHR endpoint
-    xhr_response = requests.get(xhr_url, headers=headers)
+    xhr_response = requests.get(xhr_url, headers=headers, cookies=cookies)
 
     # Check the status of the XHR response
     if xhr_response.status_code == 200:
@@ -64,29 +74,71 @@ if response.status_code == 200:
         print_structure(data)
         '''
         # Extract property and room details from JSON
-        rooms = data.get('property', {}).get('roomTypes', [])
-        print(rooms)
+        rooms = data.get("property", {}).get("roomTypes", [])
+        room_details = []
+        room_dict = {}
+        # print(rooms)
         if rooms:
-            print("Room Details:")
+            # print("Room Details:")
             for room in rooms:
-                room_name = room.get('name')
-                rate_name = room.get('rateName')
-                number_of_guests = room.get('maxOccupancy')
-                cancellation_policy = room.get('cancellationPolicy')
-                price = room.get('price', {}).get('amount')
-                top_deal = room.get('topDeal', False)
-                currency = room.get('price', {}).get('currency')
-
-                print(f"Room Name: {room_name}")
-                print(f"Rate Name: {rate_name}")
-                print(f"Number of Guests: {number_of_guests}")
-                print(f"Cancellation Policy: {cancellation_policy}")
-                print(f"Price: {price}")
-                print(f"Top Deal: {top_deal}")
-                print(f"Currency: {currency}")
-                print("------")
+                room_name = room.get("name")
+                rate_name = room.get("rateName")
+                number_of_guests = room.get("maxOccupantCount")
+                
+                room_detail = {
+                    "Room Name": room_name,
+                    "Rate Name": rate_name,
+                    "Number of Guests": number_of_guests,
+                    "Offers": []
+                }
+                room_details.append(room_detail)
+                room_dict[room_name] = room_detail
         else:
             print("No room details found")
+
+        # print(rooms)
+        # print(room_details)
+        # print(f"Fetching availability data from: {availability_url}")
+        availability_response = requests.get(availability_url, headers=headers, cookies=cookies, timeout=10)
+        # print(availability_response)
+        # Check status of availability response
+        if availability_response.status_code == 200:
+            availability_data = availability_response.json()
+            # print(json.dumps(availability_data, indent=2))
+
+            # Extract details from availability json
+            availability_rooms = availability_data.get("roomTypes", [])
+            # print(availability_rooms)
+            if availability_rooms:
+                for availability_room in availability_rooms:
+                    # print(i, availability_room)
+                    room_name = availability_room.get("name")
+                    if room_name in room_dict:
+                        for offer in availability_room.get("offers", []):
+                            # print(offer)
+                            cancellation_policy = offer.get("cancellationPolicy", {}).get("description", "N/A")
+                            price_info = offer.get("charges", {}).get("total", {})
+                            price = price_info.get("amount", "N/A")
+                            currency = price_info.get("currency", "N/A")
+                            top_deal = offer.get("promotion", {}).get("name", "") == "Top Deal"
+
+                            offer_detail = {
+                                "Cancellation Policy": cancellation_policy,
+                                "Price": price,
+                                "Currency": currency,
+                                "Top Deal": top_deal
+                            }
+                            room_dict[room_name]["Offers"].append(offer_detail)
+            else:
+                print("No availability room details found")
+        else:
+            print(f"Failed to retrieve availability data. Status code: {availability_response.status_code}")
+        
+        # print("Print all room details")
+        for room_detail in room_details:
+            if room_detail["Offers"]:
+                print(json.dumps(room_detail, indent=2))
+
     else:
         print(f"Failed to retrieve XHR data. Status code: {xhr_response.status_code}")
 
