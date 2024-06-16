@@ -45,10 +45,27 @@ if response.status_code == 200:
     if xhr_response.status_code == 200:
         print("XHR request successful")
         data = xhr_response.json()
-        print(json.dumps(data, indent=2))
+        # print(json.dumps(data, indent=2))
 
+        # Print the structure of the JSON
+        '''def print_structure(data, indent=0):
+            if isinstance(data, dict):
+                for key, value in data.items():
+                    print("  " * indent + str(key) + ":")
+                    print_structure(value, indent + 1)
+            elif isinstance(data, list):
+                for index, item in enumerate(data):
+                    print("  " * indent + f"[{index}]")
+                    print_structure(item, indent + 1)
+            else:
+                print("  " * indent + str(type(data).__name__))
+
+        # Print the structure of the JSON data
+        print_structure(data)
+        '''
         # Extract property and room details from JSON
-        rooms = data.get('rooms', [])
+        rooms = data.get('property', {}).get('roomTypes', [])
+        print(rooms)
         if rooms:
             print("Room Details:")
             for room in rooms:
