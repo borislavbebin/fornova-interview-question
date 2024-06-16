@@ -1,6 +1,7 @@
 import requests
 import re
 import json
+import csv
 
 url = "https://www.qantas.com/hotels/properties/18482?adults=2&checkIn=2024-06-23&checkOut=2024-06-24&children=0&infants=0&location=London%2C%20England%2C%20United%20Kingdom&page=1&payWith=cash&searchType=list&sortBy=popularity"
 
@@ -133,11 +134,43 @@ if response.status_code == 200:
                 print("No availability room details found")
         else:
             print(f"Failed to retrieve availability data. Status code: {availability_response.status_code}")
-        
+        '''        
         # print("Print all room details")
         for room_detail in room_details:
             if room_detail["Offers"]:
                 print(json.dumps(room_detail, indent=2))
+        '''
+
+        # Write to csv
+        csv_data = []
+        for room_detail in room_details:
+            if room_detail["Offers"]:
+                for offer in room_detail["Offers"]:
+                    csv_data.append({
+                        "Room Name": room_detail["Room Name"],
+                        "Rate Name": room_detail["Rate Name"],
+                        "Number of Guests": room_detail["Number of Guests"],
+                        "Cancellation Policy": offer["Cancellation Policy"],
+                        "Price": offer["Price"],
+                        "Currency": offer["Currency"],
+                        "Top Deal": offer["Top Deal"]
+                    })
+
+        # CSV headers
+        csv_file = "room_offers.csv"
+        csv_headers = ["Room Name", "Rate Name", "Number of Guests", "Cancellation Policy", "Price", "Currency", "Top Deal"]
+
+        # Write to csv
+        try:
+            with open(csv_file, mode='w', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=csv_headers)
+                writer.writeheader()
+                for row in csv_data:
+                    writer.writerow(row)
+            print(f"Data successfully written to {csv_file}")
+        except IOError as e:
+            print(f"I/O error({e.errno}): {e.strerror}")
+
 
     else:
         print(f"Failed to retrieve XHR data. Status code: {xhr_response.status_code}")
