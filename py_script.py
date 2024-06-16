@@ -9,10 +9,10 @@ response = requests.get(url)
 if response.status_code == 200:
     # Debug
     content_type = response.headers.get('Content-Type')
-    print(f"Content-Type: {content_type}")
+    # print(f"Content-Type: {content_type}")
     
     html_content = response.text
-    print(html_content[:5000])
+    # print(html_content[:5000])
 
     # Get property name
     property_name_pattern = re.compile(r'<h1 data-testid="property-name" class="[^"]*">(.*?)</h1>', re.DOTALL)
@@ -44,6 +44,32 @@ if response.status_code == 200:
     # Check the status of the XHR response
     if xhr_response.status_code == 200:
         print("XHR request successful")
+        data = xhr_response.json()
+        print(json.dumps(data, indent=2))
+
+        # Extract property and room details from JSON
+        rooms = data.get('rooms', [])
+        if rooms:
+            print("Room Details:")
+            for room in rooms:
+                room_name = room.get('name')
+                rate_name = room.get('rateName')
+                number_of_guests = room.get('maxOccupancy')
+                cancellation_policy = room.get('cancellationPolicy')
+                price = room.get('price', {}).get('amount')
+                top_deal = room.get('topDeal', False)
+                currency = room.get('price', {}).get('currency')
+
+                print(f"Room Name: {room_name}")
+                print(f"Rate Name: {rate_name}")
+                print(f"Number of Guests: {number_of_guests}")
+                print(f"Cancellation Policy: {cancellation_policy}")
+                print(f"Price: {price}")
+                print(f"Top Deal: {top_deal}")
+                print(f"Currency: {currency}")
+                print("------")
+        else:
+            print("No room details found")
     else:
         print(f"Failed to retrieve XHR data. Status code: {xhr_response.status_code}")
 
